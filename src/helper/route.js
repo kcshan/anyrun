@@ -3,7 +3,7 @@ const path = require('path')
 const mime = require('./mime')
 const compress = require('./compress')
 const range = require('./range')
-const conf = require('../config/defaultConf')
+const isFresh = require('./cache')
 
 const Handlebars = require('handlebars')
 const promisify = require('util').promisify
@@ -14,7 +14,8 @@ const tplPath = path.join(__dirname, '../template/dir.tpl')
 const source = fs.readFileSync(tplPath)
 const template = Handlebars.compile(source.toString())
 
-module.exports = async function (req, res, filePath) {
+module.exports = async function (req, res, filePath, conf) {
+
   try {
     const stats = await stat(filePath)
 
@@ -38,6 +39,13 @@ module.exports = async function (req, res, filePath) {
       // curl http://127.0.0.1:8899/src/config/defaultConf.js
       // curl -i http://127.0.0.1:8899/src/config/defaultConf.js
       // curl -r 0-10 -i http://127.0.0.1:8899/src/config/defaultConf.js
+      
+      if (isFresh(stats, req, res)) {
+        res.statusCode = 304
+        res.end()
+        return
+      }
+
       let rs;
       const {code, start, end} = range(stats.size, req, res)
       if (code === 200) {
